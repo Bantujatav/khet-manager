@@ -93,8 +93,8 @@
     .d-metric{background:var(--panel);border-radius:var(--radius-sm);padding:12px 14px;}
     .d-metric span{font-size:11px;color:var(--muted);font-weight:600;}
     .d-metric strong{display:block;font-size:17px;font-weight:800;margin-top:3px;}
-    .detail-tabs{display:flex;gap:8px;padding:0 20px 12px;overflow-x:auto;scrollbar-width:none;}
-    .detail-tabs::-webkit-scrollbar{display:none;}
+    .detail-tabs{display:flex;gap:8px;padding:8px 20px 12px;overflow-x:auto;scrollbar-width:none;position:sticky;top:0;z-index:50;background:var(--bg);border-bottom:1px solid var(--line);margin-bottom:4px;}
+    .detail-tabs::-webkit-scrollbar{displa:none;}
     .dtab{padding:8px 16px;border-radius:999px;font-size:13px;font-weight:700;color:var(--muted);background:var(--panel);white-space:nowrap;border:1.5px solid var(--line);transition:all .2s;flex:0 0 auto;}
     .dtab.active{background:var(--green);color:#fff;border-color:var(--green);}
     .tab-content{display:none;padding:0 20px;padding-bottom:100px;}
