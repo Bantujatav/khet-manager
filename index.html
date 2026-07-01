@@ -636,14 +636,121 @@ const STEPS={
 };
 const CROP_CODE={Groundnut:"GN",Soyabean:"SB",Maize:"MZ",Wheat:"WH",Cotton:"CT",Onion:"ON",Other:"OT"};
 
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyB1llogLSZcLWNRc6CXFaEGiEe1li0zswA",
+  projectId: "Khet-manager"
+};
+const CLOUD_COLLECTION = "khetManager";
+const CLOUD_DOC_ID = "sharedFarmData";
+const CLOUD_POLL_MS = 4000;
+const CLOUD_CONFIGURED = !FIREBASE_CONFIG.apiKey.startsWith("PASTE_") && !FIREBASE_CONFIG.projectId.startsWith("PASTE_");
+const DEVICE_ID = (() => {
+  const key = "khetDeviceId";
+  let id = localStorage.getItem(key);
+  if (!id) {
+    id = uid();
+    localStorage.setItem(key, id);
+  }
+  return id;
+})();
+let cloudReady = false;
+let cloudVersion = 0;
+let cloudPollTimer = null;
+let localDirty = false;
+let applyingRemote = false;
+
+function cloudDocUrl(){
+  return `https://firestore.googleapis.com/v1/projects/${encodeURIComponent(FIREBASE_CONFIG.projectId)}/databases/(default)/documents/${CLOUD_COLLECTION}/${CLOUD_DOC_ID}?key=${encodeURIComponent(FIREBASE_CONFIG.apiKey)}`;
+}
+function parseCloudDoc(doc){
+  const fields = doc && doc.fields ? doc.fields : {};
+  return {
+    value: fields.plotsJson && fields.plotsJson.stringValue ? fields.plotsJson.stringValue : "",
+    updatedAt: Number(fields.updatedAt && (fields.updatedAt.integerValue || fields.updatedAt.doubleValue)) || 0,
+    deviceId: fields.deviceId && fields.deviceId.stringValue ? fields.deviceId.stringValue : ""
+  };
+}
+async function cloudGet(){
+  if (!CLOUD_CONFIGURED) return null;
+  const response = await fetch(cloudDocUrl());
+  if (response.status === 404) return null;
+  if (!response.ok) throw new Error("Cloud read failed");
+  return parseCloudDoc(await response.json());
+}
+async function cloudSet(val){
+  if (!CLOUD_CONFIGURED) return;
+  const updatedAt = Date.now();
+  const response = await fetch(cloudDocUrl(), {
+    method: "PATCH",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({
+      fields: {
+        plotsJson: {stringValue: val},
+        updatedAt: {integerValue: String(updatedAt)},
+        deviceId: {stringValue: DEVICE_ID}
+      }
+    })
+  });
+  if (!response.ok) throw new Error("Cloud save failed");
+  cloudVersion = updatedAt;
+}
+async function initCloud(){
+  if (!CLOUD_CONFIGURED) return;
+  try {
+    const remote = await cloudGet();
+    cloudReady = true;
+    if (remote && remote.updatedAt) cloudVersion = remote.updatedAt;
+    startCloudPolling();
+  } catch (e) {
+    cloudReady = false;
+  }
+}
+function startCloudPolling(){
+  clearInterval(cloudPollTimer);
+  cloudPollTimer = setInterval(async () => {
+    if (!cloudReady || localDirty) return;
+    try {
+      const remote = await cloudGet();
+      if (!remote || !remote.value || remote.deviceId === DEVICE_ID || remote.updatedAt <= cloudVersion) return;
+      applyingRemote = true;
+      plots = JSON.parse(remote.value);
+      cloudVersion = remote.updatedAt;
+      localStorage.setItem("khetv4", remote.value);
+      if (cur >= plots.length) cur = plots.length ? 0 : -1;
+      renderSidebar();
+      if (cur >= 0) fillPlotView();
+      setStatus("Synced", true);
+    } catch (e) {
+      setStatus("Sync issue", false);
+    } finally {
+      applyingRemote = false;
+    }
+  }, CLOUD_POLL_MS);
+}
+
 const db = {
   get: async (key) => {
+    if (cloudReady) {
+      const remote = await cloudGet();
+      if (remote && remote.value) {
+        cloudVersion = remote.updatedAt;
+        localStorage.setItem(key, remote.value);
+        return { value: remote.value };
+      }
+      const localValue = localStorage.getItem(key);
+      if (localValue) await cloudSet(localValue);
+      return { value: localValue };
+    }
     if (window.storage && typeof window.storage.get === "function") return await window.storage.get(key);
     return { value: localStorage.getItem(key) };
   },
   set: async (key, val) => {
-    if (window.storage && typeof window.storage.set === "function") return await window.storage.set(key, val);
     localStorage.setItem(key, val);
+    if (cloudReady) {
+      await cloudSet(val);
+      return;
+    }
+    if (window.storage && typeof window.storage.set === "function") return await window.storage.set(key, val);
   }
 };
 
@@ -656,24 +763,31 @@ function setStatus(msg,ok){
   document.getElementById("sstat").textContent=msg;
 }
 async function load(){
-  setStatus("Loading...",null);
+  setStatus(CLOUD_CONFIGURED ? "Connecting..." : "Local only",null);
+  await initCloud();
   try{
     const r=await db.get("khetv4");
     if(r&&r.value) plots=JSON.parse(r.value);
-    setStatus(plots.length?"Data loaded":"Ready",true);
-  }catch(e){setStatus("Ready",true);}
+    setStatus(cloudReady ? "Cloud synced" : (plots.length?"Data loaded":"Ready"),true);
+  }catch(e){setStatus(cloudReady ? "Sync issue" : "Ready",cloudReady ? false : true);}
   renderSidebar();
   if(cur<0&&plots.length>0){cur=0;selectPlot(0,false);}
 }
 function scheduleSave(){
+  if (applyingRemote) return;
+  localDirty = true;
   setStatus("Unsaved...",null);
   clearTimeout(saveTimer);
   saveTimer=setTimeout(async()=>{
-    setStatus("Saving...",null);
+    setStatus(cloudReady ? "Syncing..." : "Saving...",null);
     try{
       await db.set("khetv4",JSON.stringify(plots));
-      setStatus("Saved",true);
-    }catch(e){setStatus("Save failed",false);}
+      localDirty = false;
+      setStatus(cloudReady ? "Synced" : "Saved",true);
+    }catch(e){
+      localDirty = false;
+      setStatus(cloudReady ? "Sync failed" : "Save failed",false);
+    }
   },700);
 }
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,5)}
