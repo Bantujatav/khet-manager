@@ -93,12 +93,30 @@
     .d-metric{background:var(--panel);border-radius:var(--radius-sm);padding:12px 14px;}
     .d-metric span{font-size:11px;color:var(--muted);font-weight:600;}
     .d-metric strong{display:block;font-size:17px;font-weight:800;margin-top:3px;}
-    .detail-tabs{display:flex;gap:8px;padding:8px 20px 12px;overflow-x:auto;scrollbar-width:none;position:sticky;top:0;z-index:50;background:var(--bg);border-bottom:1px solid var(--line);margin-bottom:4px;}
-    .detail-tabs::-webkit-scrollbar{displa:none;}
+
+    /* ── FIXED: detail tabs now sticky with background so they don't overlap ── */
+    .detail-tabs{
+      display:flex;
+      gap:8px;
+      padding:8px 20px 12px;
+      overflow-x:auto;
+      scrollbar-width:none;
+      position:sticky;
+      top:0;
+      z-index:50;
+      background:var(--bg);
+      border-bottom:1px solid var(--line);
+      flex-shrink:0;
+    }
+    .detail-tabs::-webkit-scrollbar{display:none;}
+
     .dtab{padding:8px 16px;border-radius:999px;font-size:13px;font-weight:700;color:var(--muted);background:var(--panel);white-space:nowrap;border:1.5px solid var(--line);transition:all .2s;flex:0 0 auto;}
     .dtab.active{background:var(--green);color:#fff;border-color:var(--green);}
-    .tab-content{display:none;padding:0 20px;padding-bottom:100px;}
-    .tab-content.active{display:block;}
+
+    /* ── FIXED: tab content no longer overlaps ── */
+    .tab-content{display:none;padding:12px 20px;padding-bottom:100px;}
+    .tab-content.active{display:block;flex:1;}
+
     .form-card{background:var(--panel);border-radius:var(--radius);padding:16px;margin-bottom:12px;box-shadow:var(--shadow);}
     .form-row{display:flex;flex-direction:column;gap:6px;margin-bottom:14px;}
     .form-row:last-child{margin-bottom:0;}
@@ -516,7 +534,7 @@ const STEPS={Groundnut:["Seed procurement","Seed treatment - Thiram","Seed treat
 const EMOJIS={Groundnut:"🥜",Soyabean:"🌿",Maize:"🌽",Wheat:"🌾",Cotton:"🤍",Onion:"🧅",Chana:"🫘",Tomato:"🍅",Garlic:"🧄",Other:"🌱"};
 
 // ── STATE ─────────────────────────────────────────────────────────────────────
-let currentUser=null; // {uid, email, name, idToken}
+let currentUser=null;
 let plots=[];
 let cur=-1;
 let saveTimer=null;
@@ -565,7 +583,6 @@ async function doSignup(){
     const r=await fetch(`${AUTH_URL}:signUp?key=${FB_API}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email,password:pass,returnSecureToken:true})});
     const d=await r.json();
     if(d.error){errEl.textContent=friendlyAuthError(d.error.message);return;}
-    // Save display name
     await fetch(`${AUTH_URL}:update?key=${FB_API}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({idToken:d.idToken,displayName:name,returnSecureToken:false})});
     currentUser={uid:d.localId,email:d.email,name,idToken:d.idToken,refreshToken:d.refreshToken};
     saveSession();
@@ -717,7 +734,6 @@ function showScreen(name){
   document.querySelectorAll(".nav-item").forEach(n=>n.classList.remove("active"));
   const navBtn=document.getElementById(`nav-${name}`);
   if(navBtn)navBtn.classList.add("active");
-  // show/hide bottom nav
   const showNav=["home","notes","settings"].includes(name);
   document.getElementById("bottom-nav").style.display=showNav?"flex":"none";
   if(name==="home")renderHome();
@@ -742,14 +758,12 @@ async function initApp(){
 // ── HOME ──────────────────────────────────────────────────────────────────────
 function renderHome(){
   document.getElementById("home-name").textContent=currentUser?.name||"Farmer";
-  // totals
   let te=0,ti=0,tp=0,td=0,tt=0;
   plots.forEach(p=>{const t=totals(p);te+=t.exp;ti+=t.income;tp+=t.profit;td+=t.done;tt+=t.total;});
   document.getElementById("sum-exp").textContent=money(te);
   document.getElementById("sum-income").textContent=money(ti);
   document.getElementById("sum-profit").textContent=money(tp);
   document.getElementById("sum-acts").textContent=td+"/"+tt;
-  // plots grid
   const grid=document.getElementById("plots-grid");
   if(!plots.length){
     grid.innerHTML=`<div class="empty-home"><div class="big-icon">🌾</div><strong>No plots yet</strong><p>Tap + to add your first field</p></div>`;
@@ -788,9 +802,10 @@ function confirmAdd(){
 // ── PLOT DETAIL ───────────────────────────────────────────────────────────────
 function openPlot(i){
   cur=i;
-  // reset tabs
   document.querySelectorAll(".dtab").forEach((b,idx)=>b.classList.toggle("active",idx===0));
   document.querySelectorAll(".tab-content").forEach((t,idx)=>t.classList.toggle("active",idx===0));
+  // scroll detail screen back to top
+  document.getElementById("screen-detail").scrollTop=0;
   fillDetail();
   showScreen("detail");
 }
@@ -806,7 +821,6 @@ function fillDetail(){
   document.getElementById("d-inc").textContent=money(t.income);
   document.getElementById("d-prof").textContent=money(t.profit);
   document.getElementById("d-prof").style.color=t.profit>=0?"var(--green-dark)":"var(--red)";
-  // fill info fields
   document.getElementById("f-name").value=p.name||"";
   document.getElementById("f-crop").value=p.crop||"";
   document.getElementById("f-variety").value=p.variety||"";
@@ -1101,11 +1115,9 @@ function renderSettings(){
 
 // ── BOOT ──────────────────────────────────────────────────────────────────────
 (async()=>{
-  // Check saved session
   const sess=JSON.parse(localStorage.getItem("khetSession")||"null");
   if(sess&&sess.uid){
     currentUser={uid:sess.uid,email:sess.email,name:sess.name,refreshToken:sess.refreshToken,idToken:""};
-    // Refresh token to get valid idToken
     const ok=await refreshToken();
     if(ok){await initApp();}
     else{localStorage.removeItem("khetSession");document.getElementById("loading-screen").classList.add("hide");showScreen("auth");}
@@ -1113,7 +1125,6 @@ function renderSettings(){
     document.getElementById("loading-screen").classList.add("hide");
     showScreen("auth");
   }
-  // Tag pill setup
   document.addEventListener("keydown",e=>{if(e.key==="Escape"){closeLightbox();}});
 })();
 
