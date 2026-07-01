@@ -2,6 +2,811 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#2f7d45">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Khet Manager">
+  <link rel="manifest" href="manifest.webmanifest">
+  <title>Khet Manager</title>
+  <style>
+    :root{
+      --bg:#f0f2ec;--panel:#ffffff;--ink:#1a2420;--muted:#6b7a6e;
+      --line:#e0e8da;--green:#2f7d45;--green-dark:#1e5c30;--green-light:#e8f5e0;
+      --gold:#c17f24;--red:#c0392b;--red-soft:#fdf0ee;
+      --radius:16px;--radius-sm:10px;--shadow:0 2px 16px rgba(30,50,30,.09);
+    }
+    *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+    html,body{height:100%;overflow:hidden;}
+    body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,sans-serif;background:var(--bg);color:var(--ink);font-size:15px;}
+    button,input,select,textarea{font:inherit;color:inherit;}
+    button{cursor:pointer;border:none;background:none;}
+
+    /* ── SCREENS ── */
+    .screen{position:fixed;inset:0;overflow-y:auto;overflow-x:hidden;display:none;flex-direction:column;background:var(--bg);}
+    .screen.active{display:flex;}
+
+    /* ── AUTH SCREEN ── */
+    .auth-screen{background:linear-gradient(160deg,#e8f5e0 0%,#f0f2ec 60%);}
+    .auth-inner{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 24px;min-height:100%;}
+    .auth-logo{width:88px;height:88px;border-radius:28px;background:linear-gradient(145deg,var(--green),#4a9e5c);display:grid;place-items:center;font-size:44px;box-shadow:0 12px 32px rgba(47,125,69,.28);margin-bottom:20px;}
+    .auth-title{font-size:28px;font-weight:800;color:var(--ink);margin-bottom:6px;}
+    .auth-sub{font-size:15px;color:var(--muted);margin-bottom:36px;}
+    .auth-card{width:100%;max-width:380px;background:var(--panel);border-radius:var(--radius);padding:24px;box-shadow:var(--shadow);}
+    .auth-tabs{display:grid;grid-template-columns:1fr 1fr;gap:4px;background:#f0f2ec;border-radius:var(--radius-sm);padding:4px;margin-bottom:24px;}
+    .auth-tab{padding:10px;border-radius:8px;font-size:14px;font-weight:700;color:var(--muted);transition:all .2s;}
+    .auth-tab.active{background:#fff;color:var(--green);box-shadow:0 2px 8px rgba(0,0,0,.08);}
+    .field{display:flex;flex-direction:column;gap:7px;margin-bottom:16px;}
+    .field label{font-size:13px;font-weight:700;color:var(--muted);}
+    .field input{width:100%;min-height:48px;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:12px 14px;font-size:15px;background:#fafbf9;transition:border .2s;}
+    .field input:focus{outline:none;border-color:var(--green);background:#fff;}
+    .auth-btn{width:100%;min-height:52px;background:var(--green);color:#fff;border-radius:var(--radius-sm);font-size:16px;font-weight:800;margin-top:8px;letter-spacing:.01em;transition:background .2s;}
+    .auth-btn:hover{background:var(--green-dark);}
+    .auth-err{font-size:13px;color:var(--red);text-align:center;margin-top:10px;min-height:18px;}
+
+    /* ── BOTTOM NAV ── */
+    .bottom-nav{position:fixed;bottom:0;left:0;right:0;background:var(--panel);border-top:1px solid var(--line);display:flex;z-index:100;padding-bottom:env(safe-area-inset-bottom);}
+    .nav-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 4px 8px;color:var(--muted);font-size:11px;font-weight:600;transition:color .2s;}
+    .nav-item.active{color:var(--green);}
+    .nav-icon{font-size:22px;line-height:1;}
+    .nav-indicator{width:4px;height:4px;border-radius:50%;background:var(--green);opacity:0;transition:opacity .2s;}
+    .nav-item.active .nav-indicator{opacity:1;}
+
+    /* ── TOP BAR ── */
+    .topbar{display:flex;align-items:center;justify-content:space-between;padding:52px 20px 16px;background:var(--panel);border-bottom:1px solid var(--line);}
+    .topbar-title{font-size:20px;font-weight:800;}
+    .topbar-sub{font-size:13px;color:var(--muted);margin-top:2px;}
+    .icon-btn{width:40px;height:40px;border-radius:12px;background:var(--green-light);display:grid;place-items:center;font-size:18px;flex:0 0 auto;}
+
+    /* ── HOME/DASHBOARD ── */
+    .home-header{padding:52px 20px 20px;background:linear-gradient(160deg,var(--green-dark),var(--green));color:#fff;}
+    .home-greeting{font-size:14px;opacity:.82;font-weight:500;}
+    .home-name{font-size:26px;font-weight:800;margin-top:2px;}
+    .home-sync{display:inline-flex;align-items:center;gap:6px;margin-top:10px;background:rgba(255,255,255,.15);border-radius:999px;padding:5px 12px;font-size:12px;font-weight:700;}
+    .sdot{width:7px;height:7px;border-radius:50%;background:#ffd97d;flex:0 0 auto;}
+    .summary-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:16px 20px;}
+    .s-card{background:var(--panel);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow);}
+    .s-card-icon{width:38px;height:38px;border-radius:10px;display:grid;place-items:center;font-size:18px;margin-bottom:10px;}
+    .s-card span{display:block;font-size:12px;color:var(--muted);font-weight:600;margin-bottom:4px;}
+    .s-card strong{font-size:20px;font-weight:800;}
+    .section-title{font-size:16px;font-weight:800;padding:4px 20px 12px;}
+    .plots-grid{padding:0 20px;display:flex;flex-direction:column;gap:10px;padding-bottom:100px;}
+    .plot-card{background:var(--panel);border-radius:var(--radius);padding:16px;display:flex;align-items:center;gap:14px;box-shadow:var(--shadow);cursor:pointer;transition:transform .15s;}
+    .plot-card:active{transform:scale(.98);}
+    .plot-emoji{width:48px;height:48px;border-radius:14px;background:var(--green-light);display:grid;place-items:center;font-size:24px;flex:0 0 auto;}
+    .plot-info{flex:1;min-width:0;}
+    .plot-info h3{font-size:16px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .plot-info p{font-size:13px;color:var(--muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .plot-arrow{font-size:18px;color:var(--muted);}
+    .fab{position:fixed;bottom:80px;right:20px;width:56px;height:56px;border-radius:18px;background:var(--green);color:#fff;font-size:28px;display:grid;place-items:center;box-shadow:0 6px 20px rgba(47,125,69,.35);z-index:99;transition:transform .15s;}
+    .fab:active{transform:scale(.93);}
+    .empty-home{padding:40px 20px;text-align:center;color:var(--muted);}
+    .empty-home .big-icon{font-size:64px;margin-bottom:16px;}
+    .empty-home strong{display:block;font-size:18px;font-weight:700;color:var(--ink);margin-bottom:8px;}
+
+    /* ── PLOT DETAIL ── */
+    .detail-header{padding:52px 20px 16px;background:linear-gradient(160deg,var(--green-dark),var(--green));color:#fff;display:flex;gap:14px;align-items:flex-start;}
+    .detail-emoji{width:56px;height:56px;border-radius:16px;background:rgba(255,255,255,.18);display:grid;place-items:center;font-size:28px;flex:0 0 auto;}
+    .detail-name{font-size:22px;font-weight:800;}
+    .detail-meta{font-size:13px;opacity:.82;margin-top:3px;}
+    .back-btn{width:36px;height:36px;border-radius:10px;background:rgba(255,255,255,.18);display:grid;place-items:center;font-size:18px;color:#fff;flex:0 0 auto;}
+    .detail-summary{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:16px 20px;}
+    .d-metric{background:var(--panel);border-radius:var(--radius-sm);padding:12px 14px;}
+    .d-metric span{font-size:11px;color:var(--muted);font-weight:600;}
+    .d-metric strong{display:block;font-size:17px;font-weight:800;margin-top:3px;}
+    .detail-tabs{display:flex;gap:8px;padding:0 20px 12px;overflow-x:auto;scrollbar-width:none;}
+    .detail-tabs::-webkit-scrollbar{display:none;}
+    .dtab{padding:8px 16px;border-radius:999px;font-size:13px;font-weight:700;color:var(--muted);background:var(--panel);white-space:nowrap;border:1.5px solid var(--line);transition:all .2s;flex:0 0 auto;}
+    .dtab.active{background:var(--green);color:#fff;border-color:var(--green);}
+    .tab-content{display:none;padding:0 20px;padding-bottom:100px;}
+    .tab-content.active{display:block;}
+    .form-card{background:var(--panel);border-radius:var(--radius);padding:16px;margin-bottom:12px;box-shadow:var(--shadow);}
+    .form-row{display:flex;flex-direction:column;gap:6px;margin-bottom:14px;}
+    .form-row:last-child{margin-bottom:0;}
+    .form-row label{font-size:13px;font-weight:700;color:var(--muted);}
+    .form-row input,.form-row select,.form-row textarea{width:100%;min-height:46px;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:11px 14px;font-size:15px;background:#fafbf9;}
+    .form-row textarea{min-height:80px;resize:none;}
+    .form-row input:focus,.form-row select:focus,.form-row textarea:focus{outline:none;border-color:var(--green);}
+    .sec-head{font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--green-dark);margin-bottom:12px;}
+    .act-item{background:var(--panel);border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:8px;display:grid;grid-template-columns:1fr auto;gap:10px;align-items:start;box-shadow:0 1px 4px rgba(0,0,0,.05);}
+    .act-item-inputs{display:flex;flex-direction:column;gap:6px;}
+    .act-item input,.act-item select{width:100%;min-height:38px;border:1.5px solid var(--line);border-radius:8px;padding:8px 10px;font-size:13px;background:#fafbf9;}
+    .act-del{width:32px;height:32px;border-radius:8px;background:var(--red-soft);color:var(--red);display:grid;place-items:center;font-size:16px;flex:0 0 auto;}
+    .cost-item{background:var(--panel);border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:8px;display:grid;grid-template-columns:1fr 110px auto;gap:8px;align-items:center;box-shadow:0 1px 4px rgba(0,0,0,.05);}
+    .cost-item input{width:100%;min-height:38px;border:1.5px solid var(--line);border-radius:8px;padding:8px 10px;font-size:13px;background:#fafbf9;}
+    .total-bar{background:var(--green-light);border-radius:var(--radius-sm);padding:14px 16px;display:flex;justify-content:space-between;align-items:center;font-weight:800;margin-top:4px;}
+    .total-bar span:last-child{font-size:20px;color:var(--green-dark);}
+    .profit-card{border-radius:var(--radius);padding:20px;margin-top:12px;border:2px solid var(--green);}
+    .profit-card .plabel{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;}
+    .profit-card .pval{font-size:36px;font-weight:900;margin-top:6px;}
+    .profit-card .psub{font-size:13px;margin-top:6px;opacity:.8;}
+    .add-row-btn{width:100%;min-height:44px;border:2px dashed var(--line);border-radius:var(--radius-sm);color:var(--green);font-weight:700;font-size:14px;background:transparent;margin-top:4px;}
+
+    /* ── PHOTOS ── */
+    .photo-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px;}
+    .photo-thumb{aspect-ratio:1;border-radius:var(--radius-sm);overflow:hidden;position:relative;cursor:pointer;}
+    .photo-thumb img{width:100%;height:100%;object-fit:cover;}
+    .photo-del{position:absolute;top:4px;right:4px;background:rgba(0,0,0,.6);color:#fff;border-radius:6px;padding:2px 6px;font-size:12px;display:none;}
+    .photo-thumb:hover .photo-del,.photo-thumb:active .photo-del{display:block;}
+    .photo-upload{aspect-ratio:1;border-radius:var(--radius-sm);border:2px dashed var(--line);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:var(--muted);font-size:12px;font-weight:700;cursor:pointer;}
+    #photo-input{display:none;}
+
+    /* ── DIARY ── */
+    .diary-card{background:var(--panel);border-radius:var(--radius-sm);padding:14px;margin-bottom:10px;box-shadow:0 1px 4px rgba(0,0,0,.05);}
+    .diary-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+    .diary-date{font-size:12px;color:var(--muted);font-weight:700;}
+    .diary-tag{font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;background:var(--green-light);color:var(--green-dark);}
+    .diary-text{font-size:14px;line-height:1.55;white-space:pre-wrap;}
+    .tag-pills{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;}
+    .tag-pill{padding:6px 12px;border-radius:999px;font-size:12px;font-weight:700;border:1.5px solid var(--line);color:var(--muted);background:var(--panel);}
+    .tag-pill.sel{background:var(--green);color:#fff;border-color:var(--green);}
+
+    /* ── REMINDERS ── */
+    .rem-card{background:var(--panel);border-radius:var(--radius-sm);padding:14px;margin-bottom:10px;display:flex;align-items:center;gap:12px;box-shadow:0 1px 4px rgba(0,0,0,.05);}
+    .rem-dot{width:10px;height:10px;border-radius:50%;flex:0 0 auto;}
+    .rem-info{flex:1;min-width:0;}
+    .rem-info h4{font-size:14px;font-weight:700;}
+    .rem-info p{font-size:12px;color:var(--muted);margin-top:2px;}
+    .rem-badge{font-size:11px;font-weight:700;padding:3px 8px;border-radius:999px;}
+
+    /* ── WEATHER ── */
+    .weather-hero{background:linear-gradient(135deg,#1a6fa8,#2196b8);border-radius:var(--radius);padding:20px;color:#fff;margin-bottom:12px;}
+    .weather-temp{font-size:56px;font-weight:900;line-height:1;}
+    .weather-desc{font-size:16px;opacity:.9;margin-top:4px;}
+    .weather-row{display:flex;gap:16px;margin-top:14px;flex-wrap:wrap;}
+    .weather-chip{background:rgba(255,255,255,.15);border-radius:8px;padding:6px 12px;font-size:13px;font-weight:600;}
+    .advice-card{background:var(--panel);border-radius:var(--radius-sm);padding:14px;margin-bottom:10px;box-shadow:0 1px 4px rgba(0,0,0,.05);}
+    .advice-card p{font-size:14px;line-height:1.6;color:var(--ink);}
+
+    /* ── FARM NOTES ── */
+    .notes-screen{background:var(--bg);}
+    .fn-card{background:var(--panel);border-radius:var(--radius-sm);padding:14px;margin-bottom:10px;box-shadow:0 1px 4px rgba(0,0,0,.05);}
+    .fn-card-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+    .fn-tag-badge{font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;background:var(--green-light);color:var(--green-dark);}
+    .fn-text{font-size:14px;line-height:1.55;white-space:pre-wrap;}
+
+    /* ── SETTINGS ── */
+    .settings-screen{background:var(--bg);}
+    .profile-card{background:linear-gradient(160deg,var(--green-dark),var(--green));margin:0;padding:80px 20px 28px;color:#fff;}
+    .profile-avatar{width:72px;height:72px;border-radius:50%;background:rgba(255,255,255,.25);display:grid;place-items:center;font-size:32px;font-weight:800;margin-bottom:14px;color:#fff;}
+    .profile-name{font-size:22px;font-weight:800;}
+    .profile-email{font-size:13px;opacity:.8;margin-top:4px;}
+    .settings-section{padding:20px;display:flex;flex-direction:column;gap:10px;}
+    .settings-item{background:var(--panel);border-radius:var(--radius-sm);padding:16px;display:flex;align-items:center;gap:14px;box-shadow:var(--shadow);}
+    .settings-item .si-icon{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;font-size:20px;flex:0 0 auto;}
+    .settings-item .si-info{flex:1;}
+    .settings-item .si-info h4{font-size:15px;font-weight:700;}
+    .settings-item .si-info p{font-size:12px;color:var(--muted);margin-top:2px;}
+    .logout-btn{width:calc(100% - 40px);margin:0 20px 30px;min-height:52px;border-radius:var(--radius-sm);background:var(--red-soft);color:var(--red);font-size:16px;font-weight:800;border:1.5px solid #f5c6c2;}
+
+    /* ── MODAL ── */
+    .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:flex-end;}
+    .modal-overlay.open{display:flex;}
+    .modal-sheet{background:var(--panel);border-radius:24px 24px 0 0;padding:24px 20px;width:100%;max-height:90vh;overflow-y:auto;}
+    .modal-handle{width:40px;height:4px;background:var(--line);border-radius:2px;margin:0 auto 20px;}
+    .modal-title{font-size:19px;font-weight:800;margin-bottom:4px;}
+    .modal-sub{font-size:13px;color:var(--muted);margin-bottom:20px;}
+    .modal-btn{width:100%;min-height:52px;border-radius:var(--radius-sm);font-size:16px;font-weight:800;margin-top:10px;}
+    .modal-btn.primary{background:var(--green);color:#fff;}
+    .modal-btn.ghost{background:var(--line);color:var(--muted);}
+
+    /* ── LIGHTBOX ── */
+    .lightbox{display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:300;align-items:center;justify-content:center;}
+    .lightbox.open{display:flex;}
+    .lightbox img{max-width:96vw;max-height:92vh;border-radius:12px;}
+    .lightbox-close{position:absolute;top:16px;right:16px;color:#fff;font-size:28px;background:rgba(255,255,255,.15);width:40px;height:40px;border-radius:50%;display:grid;place-items:center;}
+
+    /* ── TOAST ── */
+    .toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%) translateY(10px);background:rgba(20,30,20,.9);color:#fff;padding:10px 20px;border-radius:999px;font-size:13px;font-weight:600;z-index:400;opacity:0;transition:opacity .25s,transform .25s;white-space:nowrap;pointer-events:none;}
+    .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+    /* ── LOADING ── */
+    .loading-screen{position:fixed;inset:0;background:var(--green);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;z-index:500;color:#fff;}
+    .loading-screen.hide{display:none;}
+    .loading-icon{font-size:64px;}
+    .loading-title{font-size:24px;font-weight:800;}
+    .loading-sub{font-size:14px;opacity:.8;}
+    .spinner{width:32px;height:32px;border:3px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .8s linear infinite;margin-top:8px;}
+    @keyframes spin{to{transform:rotate(360deg)}}
+  </style>
+</head>
+<body>
+
+<!-- LOADING -->
+<div class="loading-screen" id="loading-screen">
+  <div class="loading-icon">🌱</div>
+  <div class="loading-title">Khet Manager</div>
+  <div class="loading-sub">Your farm in your pocket</div>
+  <div class="spinner"></div>
+</div>
+
+<!-- AUTH SCREEN -->
+<div class="screen auth-screen" id="screen-auth">
+  <div class="auth-inner">
+    <div class="auth-logo">🌾</div>
+    <div class="auth-title">Khet Manager</div>
+    <div class="auth-sub">Your farm in your pocket</div>
+    <div class="auth-card">
+      <div class="auth-tabs">
+        <button class="auth-tab active" id="tab-login-btn" onclick="switchAuthTab('login')">Log in</button>
+        <button class="auth-tab" id="tab-signup-btn" onclick="switchAuthTab('signup')">Sign up</button>
+      </div>
+      <!-- LOGIN -->
+      <div id="login-form">
+        <div class="field"><label>Email</label><input type="email" id="login-email" placeholder="you@example.com" autocomplete="email"></div>
+        <div class="field"><label>Password</label><input type="password" id="login-pass" placeholder="Enter password" autocomplete="current-password"></div>
+        <button class="auth-btn" onclick="doLogin()">→ Log in</button>
+      </div>
+      <!-- SIGNUP -->
+      <div id="signup-form" style="display:none">
+        <div class="field"><label>Full name</label><input type="text" id="signup-name" placeholder="e.g. Bantu Jatav" autocomplete="name"></div>
+        <div class="field"><label>Email</label><input type="email" id="signup-email" placeholder="you@example.com" autocomplete="email"></div>
+        <div class="field"><label>Password</label><input type="password" id="signup-pass" placeholder="Min 6 characters" autocomplete="new-password"></div>
+        <button class="auth-btn" onclick="doSignup()">→ Create account</button>
+      </div>
+      <div class="auth-err" id="auth-err"></div>
+    </div>
+  </div>
+</div>
+
+<!-- HOME SCREEN -->
+<div class="screen" id="screen-home">
+  <div class="home-header">
+    <div class="home-greeting">Namaste,</div>
+    <div class="home-name" id="home-name">Farmer</div>
+    <div class="home-sync" onclick="forceSync()">
+      <span class="sdot" id="sdot"></span>
+      <span id="sstat">Syncing...</span>
+    </div>
+  </div>
+  <div class="summary-row">
+    <div class="s-card">
+      <div class="s-card-icon" style="background:#fff3e0">💰</div>
+      <span>Total Expense</span>
+      <strong id="sum-exp">Rs 0</strong>
+    </div>
+    <div class="s-card">
+      <div class="s-card-icon" style="background:#e8f5e0">📈</div>
+      <span>Expected Income</span>
+      <strong id="sum-income">Rs 0</strong>
+    </div>
+    <div class="s-card">
+      <div class="s-card-icon" style="background:#e8f0fe">👛</div>
+      <span>Net Profit</span>
+      <strong id="sum-profit">Rs 0</strong>
+    </div>
+    <div class="s-card">
+      <div class="s-card-icon" style="background:#fce4ec">✅</div>
+      <span>Activities</span>
+      <strong id="sum-acts">0/0</strong>
+    </div>
+  </div>
+  <div class="section-title">Your plots</div>
+  <div class="plots-grid" id="plots-grid"></div>
+  <button class="fab" onclick="showAddPlot()">+</button>
+</div>
+
+<!-- FARM NOTES SCREEN -->
+<div class="screen notes-screen" id="screen-notes">
+  <div class="topbar">
+    <div>
+      <div class="topbar-title">📝 Farm Notes</div>
+      <div class="topbar-sub">General farm observations</div>
+    </div>
+  </div>
+  <div style="padding:16px 20px;padding-bottom:100px;">
+    <div class="form-card" style="margin-bottom:14px">
+      <div class="sec-head">Add note</div>
+      <div class="form-row"><textarea id="fn-input" placeholder="Market price, to-do, weather, contacts…" rows="3"></textarea></div>
+      <div class="tag-pills" id="fn-tag-pills">
+        <button class="tag-pill sel" data-tag="">General</button>
+        <button class="tag-pill" data-tag="📌 To-do">📌 To-do</button>
+        <button class="tag-pill" data-tag="💰 Market">💰 Market</button>
+        <button class="tag-pill" data-tag="☁️ Weather">☁️ Weather</button>
+        <button class="tag-pill" data-tag="🌿 Input">🌿 Input</button>
+        <button class="tag-pill" data-tag="📞 Contact">📞 Contact</button>
+      </div>
+      <button class="modal-btn primary" onclick="addFarmNote()" style="margin-top:0">+ Add note</button>
+    </div>
+    <div id="fn-list"></div>
+  </div>
+</div>
+
+<!-- SETTINGS SCREEN -->
+<div class="screen settings-screen" id="screen-settings">
+  <div class="profile-card">
+    <div class="profile-avatar" id="prof-avatar">B</div>
+    <div class="profile-name" id="prof-name">Farmer</div>
+    <div class="profile-email" id="prof-email"></div>
+  </div>
+  <div class="settings-section">
+    <div class="settings-item">
+      <div class="si-icon" style="background:#e8f5e0">🌱</div>
+      <div class="si-info"><h4>Khet Manager</h4><p id="app-ver">v1.0 · Farm management</p></div>
+    </div>
+    <div class="settings-item">
+      <div class="si-icon" style="background:#e8f0fe">☁️</div>
+      <div class="si-info"><h4>Offline-first</h4><p>Plots load when reconnected</p></div>
+    </div>
+    <div class="settings-item" onclick="forceSync()">
+      <div class="si-icon" style="background:#fff3e0">🔄</div>
+      <div class="si-info"><h4>Sync now</h4><p>Pull latest data from cloud</p></div>
+    </div>
+  </div>
+  <button class="logout-btn" onclick="doLogout()">↩ Log out</button>
+</div>
+
+<!-- PLOT DETAIL SCREEN -->
+<div class="screen" id="screen-detail">
+  <div class="detail-header">
+    <button class="back-btn" onclick="goBack()">←</button>
+    <div style="flex:1;min-width:0">
+      <div class="detail-name" id="d-name">Plot</div>
+      <div class="detail-meta" id="d-meta"></div>
+    </div>
+    <div class="detail-emoji" id="d-emoji">🌱</div>
+  </div>
+  <div class="detail-summary">
+    <div class="d-metric"><span>Activities</span><strong id="d-acts">0/0</strong></div>
+    <div class="d-metric"><span>Expense</span><strong id="d-exp">Rs 0</strong></div>
+    <div class="d-metric"><span>Income</span><strong id="d-inc">Rs 0</strong></div>
+    <div class="d-metric"><span>Profit</span><strong id="d-prof">Rs 0</strong></div>
+  </div>
+  <div class="detail-tabs" id="detail-tabs">
+    <button class="dtab active" onclick="switchDTab('info',this)">📋 Info</button>
+    <button class="dtab" onclick="switchDTab('activities',this)">🌱 Activities</button>
+    <button class="dtab" onclick="switchDTab('costs',this)">💰 Costs</button>
+    <button class="dtab" onclick="switchDTab('harvest',this)">🌾 Harvest</button>
+    <button class="dtab" onclick="switchDTab('photos',this)">📷 Photos</button>
+    <button class="dtab" onclick="switchDTab('reminders',this)">🔔 Reminders</button>
+    <button class="dtab" onclick="switchDTab('diary',this)">📓 Diary</button>
+    <button class="dtab" onclick="switchDTab('weather',this)">🌤 Weather</button>
+  </div>
+  <!-- tab contents -->
+  <div class="tab-content active" id="tc-info">
+    <div class="form-card">
+      <div class="sec-head">Basic info</div>
+      <div class="form-row"><label>Plot name</label><input id="f-name" oninput="uf('name',this.value)" placeholder="e.g. Magara khet"></div>
+      <div class="form-row"><label>Crop</label>
+        <select id="f-crop" onchange="uf('crop',this.value)">
+          <option value="">Select crop</option>
+          <option value="Groundnut">🥜 Groundnut (Mungfali)</option>
+          <option value="Soyabean">🌿 Soyabean</option>
+          <option value="Maize">🌽 Maize (Makka)</option>
+          <option value="Wheat">🌾 Wheat (Gehun)</option>
+          <option value="Cotton">🤍 Cotton (Kapas)</option>
+          <option value="Onion">🧅 Onion (Pyaaz)</option>
+          <option value="Chana">🫘 Chana (Gram)</option>
+          <option value="Tomato">🍅 Tomato (Tamatar)</option>
+          <option value="Garlic">🧄 Garlic (Lahsun)</option>
+          <option value="Other">🌱 Other</option>
+        </select>
+      </div>
+      <div class="form-row"><label>Variety / brand</label><input id="f-variety" oninput="uf('variety',this.value)" placeholder="e.g. GJ-13"></div>
+      <div class="form-row"><label>Plot size</label><input id="f-size" oninput="uf('size',this.value)" placeholder="e.g. 2 Bigha"></div>
+      <div class="form-row"><label>Season</label><input id="f-season" oninput="uf('season',this.value)" placeholder="e.g. Kharif 2026"></div>
+      <div class="form-row"><label>Sowing date</label><input type="date" id="f-sowing" oninput="uf('sowing',this.value)"></div>
+      <div class="form-row"><label>Expected harvest</label><input type="date" id="f-harvest" oninput="uf('harvestDate',this.value)"></div>
+      <div class="form-row"><label>Notes</label><textarea id="f-notes" oninput="uf('notes',this.value)" placeholder="Soil type, water source, past crops…"></textarea></div>
+    </div>
+    <button class="modal-btn ghost" style="margin-bottom:12px" onclick="confirmDeletePlot()">🗑 Delete this plot</button>
+  </div>
+  <div class="tab-content" id="tc-activities">
+    <div class="sec-head" style="padding-top:4px">Cultivation steps</div>
+    <div id="act-list"></div>
+    <button class="add-row-btn" onclick="addAct()">+ Add step</button>
+  </div>
+  <div class="tab-content" id="tc-costs">
+    <div class="sec-head" style="padding-top:4px">Expenses</div>
+    <div id="cost-list"></div>
+    <button class="add-row-btn" onclick="addCost()">+ Add cost</button>
+    <div class="total-bar" style="margin-top:12px"><span>Total expense</span><span id="total-exp">Rs 0</span></div>
+  </div>
+  <div class="tab-content" id="tc-harvest">
+    <div class="form-card">
+      <div class="sec-head">Harvest & income</div>
+      <div class="form-row"><label>Total yield (kg)</label><input type="number" id="h-yield" oninput="uh('yieldKg',this.value)" placeholder="0"></div>
+      <div class="form-row"><label>Sold quantity (kg)</label><input type="number" id="h-sold" oninput="uh('soldKg',this.value)" placeholder="0"></div>
+      <div class="form-row"><label>Sale rate (Rs/kg)</label><input type="number" id="h-rate" oninput="uh('rate',this.value)" placeholder="0"></div>
+      <div class="form-row"><label>Labour cost (Rs)</label><input type="number" id="h-labour" oninput="uh('labourCost',this.value)" placeholder="0"></div>
+      <div class="form-row"><label>Harvest notes</label><textarea id="h-notes" oninput="uh2('harvestNotes',this.value)" placeholder="Buyer, mandi rate, transport…"></textarea></div>
+    </div>
+    <div class="profit-card" id="profit-card" style="background:var(--green-light)">
+      <div class="plabel" style="color:var(--green-dark)">Net profit</div>
+      <div class="pval" id="profit-val" style="color:var(--green-dark)">Rs 0</div>
+      <div class="psub" id="profit-sub" style="color:var(--green)">Fill harvest details above</div>
+    </div>
+  </div>
+  <div class="tab-content" id="tc-photos">
+    <div class="sec-head" style="padding-top:4px">Field photos</div>
+    <div class="photo-grid" id="photo-grid">
+      <label class="photo-upload" for="photo-input">📷<span>Add photo</span></label>
+      <input type="file" id="photo-input" accept="image/*" multiple onchange="handlePhoto(event)">
+    </div>
+  </div>
+  <div class="tab-content" id="tc-reminders">
+    <div class="form-card" style="margin-bottom:14px">
+      <div class="sec-head">Add reminder</div>
+      <div class="form-row"><label>Task</label><input id="rem-label" placeholder="e.g. Apply fertilizer"></div>
+      <div class="form-row"><label>Date</label><input type="date" id="rem-date"></div>
+      <button class="modal-btn primary" onclick="addReminder()" style="margin-top:0">+ Add</button>
+    </div>
+    <div id="reminder-list"></div>
+  </div>
+  <div class="tab-content" id="tc-diary">
+    <div class="form-card" style="margin-bottom:14px">
+      <div class="sec-head">Add entry</div>
+      <div class="form-row"><textarea id="diary-input" placeholder="Today's field observation…" rows="3"></textarea></div>
+      <div class="tag-pills" id="diary-tag-pills">
+        <button class="tag-pill sel" data-tag="">General</button>
+        <button class="tag-pill" data-tag="💧 Irrigation">💧 Irrigation</button>
+        <button class="tag-pill" data-tag="🐛 Pest">🐛 Pest</button>
+        <button class="tag-pill" data-tag="🌿 Fertilizer">🌿 Fertilizer</button>
+        <button class="tag-pill" data-tag="☁️ Weather">☁️ Weather</button>
+        <button class="tag-pill" data-tag="💰 Market">💰 Market</button>
+      </div>
+      <button class="modal-btn primary" onclick="addDiary()" style="margin-top:0">+ Add entry</button>
+    </div>
+    <div id="diary-list"></div>
+  </div>
+  <div class="tab-content" id="tc-weather">
+    <div id="weather-content"><div style="padding:20px;color:var(--muted);font-size:14px">📡 Fetching weather…</div></div>
+    <button class="add-row-btn" onclick="loadWeather(true)" style="margin-top:8px">🔄 Refresh</button>
+  </div>
+</div>
+
+<!-- BOTTOM NAV -->
+<nav class="bottom-nav" id="bottom-nav">
+  <button class="nav-item active" id="nav-home" onclick="showScreen('home')">
+    <span class="nav-icon">🏠</span><span>Home</span><span class="nav-indicator"></span>
+  </button>
+  <button class="nav-item" id="nav-notes" onclick="showScreen('notes')">
+    <span class="nav-icon">📝</span><span>Notes</span><span class="nav-indicator"></span>
+  </button>
+  <button class="nav-item" id="nav-settings" onclick="showScreen('settings')">
+    <span class="nav-icon">⚙️</span><span>Settings</span><span class="nav-indicator"></span>
+  </button>
+</nav>
+
+<!-- ADD PLOT MODAL -->
+<div class="modal-overlay" id="modal-add">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title">New plot</div>
+    <div class="modal-sub">Add basics now, edit everything later</div>
+    <div class="form-row"><label>Plot name</label><input id="np-name" placeholder="e.g. Magara khet"></div>
+    <div class="form-row"><label>Crop</label>
+      <select id="np-crop">
+        <option value="">Select crop</option>
+        <option value="Groundnut">🥜 Groundnut</option>
+        <option value="Soyabean">🌿 Soyabean</option>
+        <option value="Maize">🌽 Maize</option>
+        <option value="Wheat">🌾 Wheat</option>
+        <option value="Cotton">🤍 Cotton</option>
+        <option value="Onion">🧅 Onion</option>
+        <option value="Chana">🫘 Chana</option>
+        <option value="Tomato">🍅 Tomato</option>
+        <option value="Garlic">🧄 Garlic</option>
+        <option value="Other">🌱 Other</option>
+      </select>
+    </div>
+    <div class="form-row"><label>Plot size</label><input id="np-size" placeholder="e.g. 2 Bigha"></div>
+    <div class="form-row"><label>Season</label><input id="np-season" placeholder="e.g. Kharif 2026"></div>
+    <button class="modal-btn primary" onclick="confirmAdd()">Create plot</button>
+    <button class="modal-btn ghost" onclick="closeModal('modal-add')">Cancel</button>
+  </div>
+</div>
+
+<!-- LIGHTBOX -->
+<div class="lightbox" id="lightbox" onclick="closeLightbox()">
+  <button class="lightbox-close">✕</button>
+  <img id="lightbox-img" src="" alt="">
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── FIREBASE CONFIG ───────────────────────────────────────────────────────────
+const FB_API = "AIzaSyB1llogLSZcLWNRc6CXFaEGiEe1li0zswA";
+const FB_PROJECT = "khet-manager";
+const AUTH_URL = `https://identitytoolkit.googleapis.com/v1/accounts`;
+const FS_URL = `https://firestore.googleapis.com/v1/projects/${FB_PROJECT}/databases/(default)/documents`;
+
+// ── CROP DATA ─────────────────────────────────────────────────────────────────
+const STEPS={Groundnut:["Seed procurement","Seed treatment - Thiram","Seed treatment - Chlorpyrifos","Rhizobium inoculant","Field preparation","Basal fertilizer","Sowing","First irrigation","Gap filling","First weeding","Top dressing","Second irrigation","Foliar spray","Second weeding","Pest monitoring","Spray (if needed)","Earthing up","Pre-harvest irrigation","Harvesting","Drying & threshing","Storage / sale"],Soyabean:["Seed procurement","Seed treatment","Rhizobium + PSB","Field preparation","Basal fertilizer","Sowing","First irrigation","First weeding","Top dressing","Second irrigation","Pest spray","Foliar spray","Third irrigation","Harvesting","Threshing","Storage / sale"],Maize:["Seed procurement","Seed treatment","Field preparation","Basal fertilizer","Sowing","First irrigation","Gap filling","First weeding","Top dressing urea 1st","Second irrigation","Top dressing urea 2nd","Pest spray","Tasseling care","Third irrigation","Harvesting","Shelling & storage"],Wheat:["Seed procurement","Seed treatment","Field preparation","Basal fertilizer","Sowing","CRI irrigation","First weeding","Top dressing urea","Second irrigation","Foliar spray","Third irrigation","Pest monitoring","Fourth irrigation","Harvesting","Threshing","Storage / sale"],Cotton:["Seed procurement","Field preparation","Basal fertilizer","Sowing","First irrigation","Gap filling","First weeding","Top dressing","Square monitoring","Boll worm spray","Second weeding","Second spray","Boll opening care","First picking","Second picking","Final picking & sale"],Onion:["Nursery preparation","Seed sowing","Nursery care","Field preparation","Transplanting","First irrigation","Weeding","Fertilizer top dressing","Pest spray","Second irrigation","Bulb formation care","Third irrigation","Foliar spray","Withholding irrigation","Harvesting","Curing & grading","Storage / sale"],Chana:["Seed procurement","Seed treatment","Rhizobium inoculant","Field preparation","Basal fertilizer","Sowing","Pre-sowing irrigation","Gap filling","First weeding","Weedicide spray","Top dressing","Flowering irrigation","Pod borer monitoring","Pod borer spray","Second irrigation","Foliar spray","Harvesting","Threshing","Storage / sale"],Tomato:["Nursery preparation","Seed sowing","Nursery care","Field preparation","FYM application","Basal fertilizer","Bed preparation","Transplanting","First irrigation","Staking","First weeding","Top dressing 1st","Foliar spray","Pest monitoring","Fungicide spray","Insecticide spray","Second weeding","Top dressing 2nd","First picking","Regular picking","Final harvest & sale"],Garlic:["Seed (clove) procurement","Seed treatment","Field preparation","FYM & basal fertilizer","Ridge preparation","Planting","First irrigation","Gap filling","First weeding","Top dressing 1st","Second irrigation","Top dressing 2nd","Third irrigation","Pest monitoring","Spray (if needed)","Fourth irrigation (stop 15d before)","Withholding irrigation","Harvesting","Drying in shade","Grading & storage / sale"],Other:["Seed procurement","Field preparation","Basal fertilizer","Sowing / planting","First irrigation","First weeding","Fertilizer top dressing","Pest spray","Second irrigation","Second weeding","Foliar spray","Pre-harvest care","Harvesting","Post-harvest processing","Storage / sale"]};
+const EMOJIS={Groundnut:"🥜",Soyabean:"🌿",Maize:"🌽",Wheat:"🌾",Cotton:"🤍",Onion:"🧅",Chana:"🫘",Tomato:"🍅",Garlic:"🧄",Other:"🌱"};
+
+// ── STATE ─────────────────────────────────────────────────────────────────────
+let currentUser=null; // {uid, email, name, idToken}
+let plots=[];
+let cur=-1;
+let saveTimer=null;
+let pollTimer=null;
+let isOnline=navigator.onLine;
+let cloudVer=0;
+
+window.addEventListener("online",()=>{isOnline=true;if(currentUser)scheduleSave();});
+window.addEventListener("offline",()=>{isOnline=false;});
+
+// ── HELPERS ───────────────────────────────────────────────────────────────────
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,5)}
+function fmt(n){return Math.round(n||0).toLocaleString("en-IN")}
+function money(n){return"Rs "+fmt(n)}
+function esc(s){return(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;")}
+function cropEmoji(p){return EMOJIS[p.crop]||"🌱"}
+function totals(p){
+  const acts=p.activities||[];const done=acts.filter(a=>a.status==="done").length;
+  const exp=(p.costs||[]).reduce((s,c)=>s+(parseFloat(c.amount)||0),0);
+  const h=p.harvest||{};const income=(h.soldKg||0)*(h.rate||0);
+  return{done,total:acts.length,exp,income,profit:income-exp-(h.labourCost||0)};
+}
+
+let toastTimer=null;
+function showToast(msg){const t=document.getElementById("toast");t.textContent=msg;t.classList.add("show");clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove("show"),2600);}
+function setStatus(msg,ok){document.getElementById("sdot").style.background=ok===true?"#4caf50":ok===false?"#f44336":"#ffd97d";document.getElementById("sstat").textContent=msg;}
+
+// ── AUTH ──────────────────────────────────────────────────────────────────────
+function switchAuthTab(tab){
+  document.getElementById("login-form").style.display=tab==="login"?"block":"none";
+  document.getElementById("signup-form").style.display=tab==="signup"?"block":"none";
+  document.getElementById("tab-login-btn").classList.toggle("active",tab==="login");
+  document.getElementById("tab-signup-btn").classList.toggle("active",tab==="signup");
+  document.getElementById("auth-err").textContent="";
+}
+
+async function doSignup(){
+  const name=document.getElementById("signup-name").value.trim();
+  const email=document.getElementById("signup-email").value.trim();
+  const pass=document.getElementById("signup-pass").value;
+  const errEl=document.getElementById("auth-err");
+  errEl.textContent="";
+  if(!name||!email||!pass){errEl.textContent="Please fill all fields.";return;}
+  if(pass.length<6){errEl.textContent="Password must be at least 6 characters.";return;}
+  try{
+    const r=await fetch(`${AUTH_URL}:signUp?key=${FB_API}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email,password:pass,returnSecureToken:true})});
+    const d=await r.json();
+    if(d.error){errEl.textContent=friendlyAuthError(d.error.message);return;}
+    // Save display name
+    await fetch(`${AUTH_URL}:update?key=${FB_API}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({idToken:d.idToken,displayName:name,returnSecureToken:false})});
+    currentUser={uid:d.localId,email:d.email,name,idToken:d.idToken,refreshToken:d.refreshToken};
+    saveSession();
+    await initApp();
+  }catch(e){errEl.textContent="Network error. Please try again.";}
+}
+
+async function doLogin(){
+  const email=document.getElementById("login-email").value.trim();
+  const pass=document.getElementById("login-pass").value;
+  const errEl=document.getElementById("auth-err");
+  errEl.textContent="";
+  if(!email||!pass){errEl.textContent="Please enter email and password.";return;}
+  try{
+    const r=await fetch(`${AUTH_URL}:signInWithPassword?key=${FB_API}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email,password:pass,returnSecureToken:true})});
+    const d=await r.json();
+    if(d.error){errEl.textContent=friendlyAuthError(d.error.message);return;}
+    currentUser={uid:d.localId,email:d.email,name:d.displayName||email.split("@")[0],idToken:d.idToken,refreshToken:d.refreshToken};
+    saveSession();
+    await initApp();
+  }catch(e){errEl.textContent="Network error. Please try again.";}
+}
+
+function friendlyAuthError(msg){
+  if(msg.includes("EMAIL_EXISTS"))return"This email is already registered.";
+  if(msg.includes("INVALID_LOGIN_CREDENTIALS")||msg.includes("INVALID_PASSWORD")||msg.includes("EMAIL_NOT_FOUND"))return"Incorrect email or password.";
+  if(msg.includes("WEAK_PASSWORD"))return"Password is too weak (min 6 chars).";
+  if(msg.includes("INVALID_EMAIL"))return"Invalid email address.";
+  if(msg.includes("TOO_MANY_ATTEMPTS"))return"Too many attempts. Try again later.";
+  return"Something went wrong. Try again.";
+}
+
+async function doLogout(){
+  if(!confirm("Log out of Khet Manager?"))return;
+  localStorage.removeItem("khetSession");
+  currentUser=null;plots=[];cur=-1;cloudVer=0;
+  clearInterval(pollTimer);
+  document.getElementById("bottom-nav").style.display="none";
+  showScreen("auth");
+  showToast("Logged out");
+}
+
+function saveSession(){localStorage.setItem("khetSession",JSON.stringify({uid:currentUser.uid,email:currentUser.email,name:currentUser.name,refreshToken:currentUser.refreshToken}));}
+
+async function refreshToken(){
+  if(!currentUser?.refreshToken)return false;
+  try{
+    const r=await fetch(`https://securetoken.googleapis.com/v1/token?key=${FB_API}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({grant_type:"refresh_token",refresh_token:currentUser.refreshToken})});
+    const d=await r.json();
+    if(d.id_token){currentUser.idToken=d.id_token;currentUser.refreshToken=d.refresh_token;saveSession();return true;}
+  }catch(e){}
+  return false;
+}
+
+// ── FIRESTORE ─────────────────────────────────────────────────────────────────
+function userDocUrl(){return`${FS_URL}/users/${currentUser.uid}/data/plots`;}
+function userNotesUrl(){return`${FS_URL}/users/${currentUser.uid}/data/farmNotes`;}
+function authHeader(){return{"Content-Type":"application/json","Authorization":`Bearer ${currentUser.idToken}`};}
+
+async function cloudGet(){
+  let r=await fetch(userDocUrl()+"?_="+Date.now(),{headers:authHeader(),cache:"no-store"});
+  if(r.status===401){await refreshToken();r=await fetch(userDocUrl()+"?_="+Date.now(),{headers:authHeader(),cache:"no-store"});}
+  if(r.status===404)return null;
+  if(!r.ok)throw new Error("Read fail");
+  const d=await r.json();
+  return{value:d.fields?.plotsJson?.stringValue||"",updatedAt:Number(d.fields?.updatedAt?.integerValue||0)};
+}
+async function cloudSet(json){
+  const now=Date.now();
+  const r=await fetch(userDocUrl(),{method:"PATCH",headers:authHeader(),body:JSON.stringify({fields:{plotsJson:{stringValue:json},updatedAt:{integerValue:String(now)}}})});
+  if(!r.ok)throw new Error("Write fail");
+  cloudVer=now;
+}
+async function cloudGetNotes(){
+  try{
+    const r=await fetch(userNotesUrl()+"?_="+Date.now(),{headers:authHeader(),cache:"no-store"});
+    if(r.status===404)return null;
+    if(!r.ok)return null;
+    const d=await r.json();
+    return{value:d.fields?.notesJson?.stringValue||"",updatedAt:Number(d.fields?.updatedAt?.integerValue||0)};
+  }catch{return null;}
+}
+async function cloudSetNotes(json){
+  await fetch(userNotesUrl(),{method:"PATCH",headers:authHeader(),body:JSON.stringify({fields:{notesJson:{stringValue:json},updatedAt:{integerValue:String(Date.now())}}})});
+}
+
+// ── LOAD & SAVE ───────────────────────────────────────────────────────────────
+async function loadData(){
+  const lsKey=`khetv4_${currentUser.uid}`;
+  try{
+    if(isOnline){
+      const r=await cloudGet();
+      if(r&&r.value){plots=JSON.parse(r.value);cloudVer=r.updatedAt;localStorage.setItem(lsKey,r.value);setStatus("Synced ✓",true);}
+      else{const loc=localStorage.getItem(lsKey);if(loc)plots=JSON.parse(loc);setStatus("Ready",true);}
+    }else{
+      const loc=localStorage.getItem(lsKey);if(loc)plots=JSON.parse(loc);setStatus("Offline",null);
+    }
+  }catch(e){const loc=localStorage.getItem(lsKey);if(loc)try{plots=JSON.parse(loc);}catch{}setStatus("Sync issue",false);}
+}
+
+function scheduleSave(){
+  clearTimeout(saveTimer);
+  setStatus("Saving…",null);
+  saveTimer=setTimeout(async()=>{
+    const json=JSON.stringify(plots);
+    localStorage.setItem(`khetv4_${currentUser.uid}`,json);
+    if(!isOnline){setStatus("Saved locally",null);return;}
+    try{await cloudSet(json);setStatus("Synced ✓",true);showToast("☁️ Synced");}
+    catch(e){setStatus("Local saved",false);saveTimer=setTimeout(scheduleSave,4000);}
+  },900);
+}
+
+async function forceSync(){
+  if(!isOnline){showToast("⚠️ Offline");return;}
+  setStatus("Syncing…",null);
+  try{
+    const r=await cloudGet();
+    if(r&&r.value&&r.updatedAt>cloudVer){
+      plots=JSON.parse(r.value);cloudVer=r.updatedAt;
+      localStorage.setItem(`khetv4_${currentUser.uid}`,r.value);
+      renderHome();if(cur>=0)fillDetail();
+      setStatus("Synced ✓",true);showToast("✅ Pulled latest");
+    }else{
+      await cloudSet(JSON.stringify(plots));setStatus("Synced ✓",true);showToast("✓ Up to date");
+    }
+  }catch(e){setStatus("Sync failed",false);showToast("❌ Sync failed");}
+}
+
+function startPolling(){
+  clearInterval(pollTimer);
+  pollTimer=setInterval(async()=>{
+    if(!isOnline||!currentUser)return;
+    try{
+      const r=await cloudGet();
+      if(r&&r.value&&r.updatedAt>cloudVer){
+        plots=JSON.parse(r.value);cloudVer=r.updatedAt;
+        localStorage.setItem(`khetv4_${currentUser.uid}`,r.value);
+        renderHome();if(cur>=0)fillDetail();
+        showToast("🔄 Updated from cloud");setStatus("Synced ✓",true);
+      }
+    }catch{}
+  },6000);
+}
+
+// ── SCREENS ───────────────────────────────────────────────────────────────────
+function showScreen(name){
+  document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));
+  document.getElementById(`screen-${name}`).classList.add("active");
+  document.querySelectorAll(".nav-item").forEach(n=>n.classList.remove("active"));
+  const navBtn=document.getElementById(`nav-${name}`);
+  if(navBtn)navBtn.classList.add("active");
+  // show/hide bottom nav
+  const showNav=["home","notes","settings"].includes(name);
+  document.getElementById("bottom-nav").style.display=showNav?"flex":"none";
+  if(name==="home")renderHome();
+  if(name==="notes"){renderFarmNotes();syncFarmNotes();}
+  if(name==="settings")renderSettings();
+}
+
+function goBack(){showScreen("home");}
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+async function initApp(){
+  document.getElementById("loading-screen").classList.remove("hide");
+  await loadData();
+  renderHome();
+  renderSettings();
+  document.getElementById("loading-screen").classList.add("hide");
+  document.getElementById("bottom-nav").style.display="flex";
+  showScreen("home");
+  startPolling();
+}
+
+// ── HOME ──────────────────────────────────────────────────────────────────────
+function renderHome(){
+  document.getElementById("home-name").textContent=currentUser?.name||"Farmer";
+  // totals
+  let te=0,ti=0,tp=0,td=0,tt=0;
+  plots.forEach(p=>{const t=totals(p);te+=t.exp;ti+=t.income;tp+=t.profit;td+=t.done;tt+=t.total;});
+  document.getElementById("sum-exp").textContent=money(te);
+  document.getElementById("sum-income").textContent=money(ti);
+  document.getElementById("sum-profit").textContent=money(tp);
+  document.getElementById("sum-acts").textContent=td+"/"+tt;
+  // plots grid
+  const grid=document.getElementById("plots-grid");
+  if(!plots.length){
+    grid.innerHTML=`<div class="empty-home"><div class="big-icon">🌾</div><strong>No plots yet</strong><p>Tap + to add your first field</p></div>`;
+    return;
+  }
+  grid.innerHTML=plots.map((p,i)=>`
+    <div class="plot-card" onclick="openPlot(${i})">
+      <div class="plot-emoji">${cropEmoji(p)}</div>
+      <div class="plot-info">
+        <h3>${esc(p.name)||"Unnamed"}</h3>
+        <p>${esc([p.crop,p.size].filter(Boolean).join(" - "))||"Tap to add details"}</p>
+      </div>
+      <div class="plot-arrow">›</div>
+    </div>`).join("");
+}
+
+// ── ADD PLOT ──────────────────────────────────────────────────────────────────
+function showAddPlot(){document.getElementById("modal-add").classList.add("open");setTimeout(()=>document.getElementById("np-name").focus(),200);}
+function closeModal(id){document.getElementById(id).classList.remove("open");}
+function confirmAdd(){
+  const name=document.getElementById("np-name").value.trim()||"New plot";
+  const cropKey=document.getElementById("np-crop").value||"Other";
+  const size=document.getElementById("np-size").value.trim();
+  const season=document.getElementById("np-season").value.trim();
+  plots.push({id:uid(),name,crop:cropKey,size,season,variety:"",sowing:"",harvestDate:"",notes:"",
+    activities:(STEPS[cropKey]||STEPS.Other).map(label=>({label,date:"",status:"pending"})),
+    costs:[],harvest:{yieldKg:0,soldKg:0,rate:0,labourCost:0,harvestNotes:""},
+    photos:[],reminders:[],diary:[]});
+  closeModal("modal-add");
+  ["np-name","np-size","np-season"].forEach(id=>document.getElementById(id).value="");
+  document.getElementById("np-crop").value="";
+  scheduleSave();renderHome();
+  openPlot(plots.length-1);
+}
+
+// ── PLOT DETAIL ───────────────────────────────────────────────────────────────
+function openPlot(i){
+  cur=i;
+  // reset tabs
+  document.querySelectorAll(".dtab").forEach((b,idx)=>b.classList.toggle("active",idx===0));
+  document.querySelectorAll(".tab-content").forEach((t,idx)=>t.classList.toggle("active",idx===0));
+  fillDetail();
+  showScreen("detail");
+}
+
+function fillDetail(){
+  const p=plots[cur];
+  document.getElementById("d-name").textContent=p.name||"Unnamed";
+  document.getElementById("d-meta").textContent=[p.size,p.season,p.crop].filter(Boolean).join(" · ")||"Add details below";
+  document.getElementById("d-emoji").textContent=cropEmoji(p);
+  const t=totals(p);
+  document.getElementById("d-acts").textContent=t.done+"/"+t.total;
+  document.getElementById("d-exp").textContent=money(t.exp);
+  document.getElementById("d-inc").textContent=money(t.income);
+  document.getElementById("d-prof").textContent=money(t.profit);
+  document.getElementById("d-prof").style.color=t.profit>=0?"var(--green-dark)":"var(--red)";
+  // fill info fields
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#2f7d45">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -739,6 +1544,52 @@ function fillPlotView(){
   document.getElementById("f-season").value=p.season||"";
   document.getElementById("f-sowing").value=p.sowing||"";
   document.getElementById("f-harvest").value=p.harvestDate||"";
+  document.getElementById("f-notes").value=p.notes||"";
+  renderActs();renderCosts();renderHarvest();renderPhotos();renderReminders();renderDiary();
+}
+
+function uf(k,v){
+  if(cur<0)return;plots[cur][k]=v;
+  document.getElementById("d-name").textContent=plots[cur].name||"Unnamed";
+  document.getElementById("d-meta").textContent=[plots[cur].size,plots[cur].season,plots[cur].crop].filter(Boolean).join(" · ")||"Add details below";
+  document.getElementById("d-emoji").textContent=cropEmoji(plots[cur]);
+  scheduleSave();renderHome();
+}
+
+function switchDTab(name,btn){
+  document.querySelectorAll(".dtab").forEach(b=>b.classList.remove("active"));
+  btn.classList.add("active");
+  document.querySelectorAll(".tab-content").forEach(t=>t.classList.remove("active"));
+  document.getElementById("tc-"+name).classList.add("active");
+  if(name==="weather")loadWeather();
+}
+
+function confirmDeletePlot(){
+  if(!confirm(`Delete "${plots[cur]?.name||"this plot"}"? Cannot be undone.`))return;
+  plots.splice(cur,1);cur=-1;scheduleSave();showScreen("home");
+}
+
+// ── ACTIVITIES ────────────────────────────────────────────────────────────────
+function renderActs(){
+  const acts=plots[cur].activities||[];
+  document.getElementById("act-list").innerHTML=acts.length===0
+    ?`<p style="color:var(--muted);font-size:14px;padding:8px 0">No steps yet.</p>`
+    :acts.map((a,i)=>`<div class="act-item">
+      <div class="act-item-inputs">
+        <input value="${esc(a.label)}" oninput="plots[cur].activities[${i}].label=this.value;scheduleSave()" placeholder="Step name">
+        <input type="date" value="${a.date||""}" oninput="plots[cur].activities[${i}].date=this.value;scheduleSave()">
+        <select onchange="plots[cur].activities[${i}].status=this.value;fillDetail();scheduleSave()">
+          <option value="pending" ${a.status==="pending"?"selected":""}>⏳ Pending</option>
+          <option value="done" ${a.status==="done"?"selected":""}>✅ Done</option>
+        </select>
+      </div>
+      <button class="act-del" onclick="delAct(${i})">✕</button>
+    </div>`).join("");
+}
+function addAct(){plots[cur].activities.push({label:"",date:"",status:"pending"});renderActs();scheduleSave();}
+function delAct(i){if(!confirm("Delete step?"))return;plots[cur].activities.splice(i,1);renderActs();fillDetail();scheduleSave();}
+
+// ── COSTS ─────────────────────────────────────────────────────────────────────
   renderActs();renderCosts();renderHarvest();updateMetrics();
 }
 function uf(k,v){
@@ -770,115 +1621,270 @@ function renderCosts(){
   const costs=plots[cur].costs||[];
   const total=costs.reduce((s,c)=>s+(parseFloat(c.amount)||0),0);
   document.getElementById("cost-list").innerHTML=costs.length===0
-    ? `<div class="empty-row">No costs yet. Add seed, fertilizer, labour, or other expenses.</div>`
-    : costs.map((c,i)=>`
-<div class="cost-grid-row row-item">
-  <input class="ipt" value="${esc(c.cat)}" oninput="plots[cur].costs[${i}].cat=this.value;scheduleSave()" placeholder="e.g. Seed purchase">
-  <input class="ipt" type="number" min="0" value="${c.amount||""}" oninput="plots[cur].costs[${i}].amount=this.value;updateTotal();scheduleSave()" placeholder="0">
-  <button class="del-btn" onclick="delCost(${i})" aria-label="Delete cost">&times;</button>
-</div>`).join("");
+    ?`<p style="color:var(--muted);font-size:14px;padding:8px 0">No costs yet.</p>`
+    :costs.map((c,i)=>`<div class="cost-item">
+      <input value="${esc(c.cat)}" oninput="plots[cur].costs[${i}].cat=this.value;scheduleSave()" placeholder="e.g. Seed">
+      <input type="number" value="${c.amount||""}" oninput="plots[cur].costs[${i}].amount=this.value;updateTotal();scheduleSave()" placeholder="Rs 0">
+      <button class="act-del" onclick="delCost(${i})">✕</button>
+    </div>`).join("");
   document.getElementById("total-exp").textContent=money(total);
-  updateMetrics();
 }
-function updateTotal(){
-  const t=plots[cur].costs.reduce((s,c)=>s+(parseFloat(c.amount)||0),0);
-  document.getElementById("total-exp").textContent=money(t);
-  renderProfitCalc();updateMetrics();
-}
-function addCost(){plots[cur].costs.push({cat:"",amount:""});renderCosts();scheduleSave()}
-function delCost(i){if(!confirm("Delete this cost entry?"))return;plots[cur].costs.splice(i,1);renderCosts();scheduleSave()}
-function uh(k,v){plots[cur].harvest[k]=parseFloat(v)||0;renderProfitCalc();updateMetrics();scheduleSave()}
+function updateTotal(){const t=plots[cur].costs.reduce((s,c)=>s+(parseFloat(c.amount)||0),0);document.getElementById("total-exp").textContent=money(t);renderProfitCalc();fillDetail();}
+function addCost(){plots[cur].costs.push({cat:"",amount:""});renderCosts();scheduleSave();}
+function delCost(i){if(!confirm("Delete cost?"))return;plots[cur].costs.splice(i,1);renderCosts();fillDetail();scheduleSave();}
+
+// ── HARVEST ───────────────────────────────────────────────────────────────────
+function uh(k,v){plots[cur].harvest[k]=parseFloat(v)||0;renderProfitCalc();fillDetail();scheduleSave();}
+function uh2(k,v){plots[cur].harvest[k]=v;scheduleSave();}
 function renderHarvest(){
   const h=plots[cur].harvest||{};
   document.getElementById("h-yield").value=h.yieldKg||"";
   document.getElementById("h-sold").value=h.soldKg||"";
   document.getElementById("h-rate").value=h.rate||"";
   document.getElementById("h-labour").value=h.labourCost||"";
+  document.getElementById("h-notes").value=h.harvestNotes||"";
   renderProfitCalc();
 }
 function renderProfitCalc(){
-  const p=plots[cur];
-  const t=totals(p);
-  const box=document.getElementById("profit-box");
+  const p=plots[cur];const t=totals(p);
+  const card=document.getElementById("profit-card");
   const pval=document.getElementById("profit-val");
   const psub=document.getElementById("profit-sub");
-  box.style.background=t.profit>=0?"#edf8e9":"#fff0ee";
-  box.style.borderColor=t.profit>=0?"#c9e0bf":"#f0c1bb";
+  card.style.background=t.profit>=0?"var(--green-light)":"#fdf0ee";
+  card.style.borderColor=t.profit>=0?"var(--green)":"var(--red)";
   pval.style.color=t.profit>=0?"var(--green-dark)":"var(--red)";
   pval.textContent=money(t.profit);
   psub.style.color=t.profit>=0?"var(--green)":"var(--red)";
-  psub.textContent=t.income>0?`Income ${money(t.income)} - Expense ${money(t.exp+(p.harvest.labourCost||0))}`:"Fill in sold quantity and rate above";
-  updateMetrics();
+  psub.textContent=t.income>0?`Income ${money(t.income)} − Expense ${money(t.exp+(p.harvest.labourCost||0))}`:"Fill in sold qty and rate above";
 }
-function switchTab(name,btn){
-  document.querySelectorAll(".tab").forEach(b=>b.classList.remove("active"));
-  btn.classList.add("active");
-  ["info","activities","costs","harvest"].forEach(t=>document.getElementById("tab-"+t).style.display=t===name?"block":"none");
-  if(name==="activities")renderActs();
-  else if(name==="costs")renderCosts();
-  else if(name==="harvest")renderHarvest();
-}
-function showModal(){
-  document.getElementById("modal").style.display="flex";
-  setTimeout(()=>document.getElementById("np-name").focus(),0);
-}
-function closeModal(){
-  document.getElementById("modal").style.display="none";
-  document.getElementById("np-name").value="";
-  document.getElementById("np-crop").value="";
-  document.getElementById("np-size").value="";
-  document.getElementById("np-season").value="";
-}
-function confirmAdd(){
-  const name=document.getElementById("np-name").value.trim()||"New plot";
-  const cropKey=document.getElementById("np-crop").value||"Other";
-  const size=document.getElementById("np-size").value.trim();
-  const season=document.getElementById("np-season").value.trim();
-  const steps=(STEPS[cropKey]||STEPS.Other).map(label=>({label,date:"",status:"pending"}));
-  plots.push({id:uid(),name,crop:cropKey,size,season,variety:"",sowing:"",harvestDate:"",activities:steps,costs:[],harvest:{yieldKg:0,soldKg:0,rate:0,labourCost:0}});
-  closeModal();
-  cur=plots.length-1;
-  scheduleSave();
-  renderSidebar();
-  selectPlot(cur,true);
-}
-function deletePlot(){
-  if(!confirm("Delete this plot? This cannot be undone."))return;
-  plots.splice(cur,1);
-  cur=plots.length>0?0:-1;
-  scheduleSave();
-  backToList();
-  if(cur>=0){renderSidebar();selectPlot(cur,false)}
-  else{plots=[];cur=-1;renderSidebar()}
-}
-document.getElementById("modal").addEventListener("click",e=>{if(e.target.id==="modal")closeModal()});
-document.addEventListener("keydown",e=>{if(e.key==="Escape")closeModal()});
 
-let deferredInstallPrompt=null;
-const installButton=document.getElementById("install-btn");
-window.addEventListener("beforeinstallprompt",e=>{
-  e.preventDefault();
-  deferredInstallPrompt=e;
-  installButton.style.display="inline-flex";
+// ── PHOTOS ────────────────────────────────────────────────────────────────────
+function renderPhotos(){
+  const photos=plots[cur].photos||[];
+  const grid=document.getElementById("photo-grid");
+  grid.innerHTML=`<label class="photo-upload" for="photo-input">📷<span>Add photo</span></label>
+    <input type="file" id="photo-input" accept="image/*" multiple onchange="handlePhoto(event)">`;
+  photos.forEach((src,i)=>{
+    const div=document.createElement("div");div.className="photo-thumb";
+    div.innerHTML=`<img src="${src}" onclick="openLightbox('${src}')"><button class="photo-del" onclick="delPhoto(${i})">✕</button>`;
+    grid.appendChild(div);
+  });
+}
+function handlePhoto(e){
+  Array.from(e.target.files).forEach(file=>{
+    const reader=new FileReader();
+    reader.onload=ev=>{
+      const img=new Image();
+      img.onload=()=>{
+        const MAX=800;const ratio=Math.min(1,MAX/img.width);
+        const canvas=document.createElement("canvas");
+        canvas.width=img.width*ratio;canvas.height=img.height*ratio;
+        canvas.getContext("2d").drawImage(img,0,0,canvas.width,canvas.height);
+        if(!plots[cur].photos)plots[cur].photos=[];
+        plots[cur].photos.push(canvas.toDataURL("image/jpeg",.75));
+        renderPhotos();scheduleSave();
+      };img.src=ev.target.result;
+    };reader.readAsDataURL(file);
+  });e.target.value="";
+}
+function delPhoto(i){if(!confirm("Delete photo?"))return;plots[cur].photos.splice(i,1);renderPhotos();scheduleSave();}
+function openLightbox(src){document.getElementById("lightbox-img").src=src;document.getElementById("lightbox").classList.add("open");}
+function closeLightbox(){document.getElementById("lightbox").classList.remove("open");}
+
+// ── REMINDERS ────────────────────────────────────────────────────────────────
+function renderReminders(){
+  const rems=plots[cur].reminders||[];
+  const today=new Date();today.setHours(0,0,0,0);
+  if(!rems.length){document.getElementById("reminder-list").innerHTML=`<p style="color:var(--muted);font-size:14px;padding:8px 0">No reminders yet.</p>`;return;}
+  document.getElementById("reminder-list").innerHTML=rems.map((r,i)=>{
+    const d=r.date?new Date(r.date):null;
+    let badge="",dot="#ccc";
+    if(d){d.setHours(0,0,0,0);const diff=Math.round((d-today)/86400000);
+      if(diff<0){badge=`<span class="rem-badge" style="background:#fdf0ee;color:var(--red)">⚠ ${Math.abs(diff)}d overdue</span>`;dot="var(--red)";}
+      else if(diff===0){badge=`<span class="rem-badge" style="background:#fff3e0;color:#e65100">📅 Today</span>`;dot="#ff9800";}
+      else if(diff<=3){badge=`<span class="rem-badge" style="background:#fff3e0;color:#e65100">⏰ In ${diff}d</span>`;dot="#ff9800";}
+      else{badge=`<span class="rem-badge" style="background:var(--green-light);color:var(--green-dark)">✓ ${diff}d left</span>`;dot="var(--green)";}
+    }
+    return`<div class="rem-card"><div class="rem-dot" style="background:${dot}"></div>
+      <div class="rem-info"><h4>${esc(r.label)}</h4><p>${r.date||"No date set"}</p></div>
+      ${badge}<button class="act-del" onclick="delReminder(${i})">✕</button></div>`;
+  }).join("");
+}
+function addReminder(){
+  const label=document.getElementById("rem-label").value.trim();
+  const date=document.getElementById("rem-date").value;
+  if(!label){document.getElementById("rem-label").focus();return;}
+  if(!plots[cur].reminders)plots[cur].reminders=[];
+  plots[cur].reminders.push({id:uid(),label,date});
+  document.getElementById("rem-label").value="";document.getElementById("rem-date").value="";
+  renderReminders();scheduleSave();showToast("🔔 Reminder added");
+}
+function delReminder(i){if(!confirm("Delete reminder?"))return;plots[cur].reminders.splice(i,1);renderReminders();scheduleSave();}
+
+// ── DIARY ─────────────────────────────────────────────────────────────────────
+let selectedDiaryTag="";
+document.getElementById("diary-tag-pills").addEventListener("click",e=>{
+  const btn=e.target.closest(".tag-pill");if(!btn)return;
+  document.querySelectorAll("#diary-tag-pills .tag-pill").forEach(b=>b.classList.remove("sel"));
+  btn.classList.add("sel");selectedDiaryTag=btn.dataset.tag;
 });
-window.addEventListener("appinstalled",()=>{
-  deferredInstallPrompt=null;
-  installButton.style.display="none";
+function renderDiary(){
+  const entries=plots[cur].diary||[];
+  if(!entries.length){document.getElementById("diary-list").innerHTML=`<p style="color:var(--muted);font-size:14px;padding:8px 0">No diary entries yet.</p>`;return;}
+  document.getElementById("diary-list").innerHTML=[...entries].reverse().map((e,ri)=>{
+    const i=entries.length-1-ri;
+    return`<div class="diary-card">
+      <div class="diary-top"><span class="diary-date">${e.date}</span>${e.tag?`<span class="diary-tag">${e.tag}</span>`:""}</div>
+      <div class="diary-text">${esc(e.text)}</div>
+      <button class="act-del" style="margin-top:8px;width:auto;padding:0 10px;font-size:13px" onclick="delDiary(${i})">🗑 Delete</button>
+    </div>`;
+  }).join("");
+}
+function addDiary(){
+  const text=document.getElementById("diary-input").value.trim();
+  if(!text){document.getElementById("diary-input").focus();return;}
+  if(!plots[cur].diary)plots[cur].diary=[];
+  const d=new Date();
+  plots[cur].diary.push({date:d.toLocaleDateString("en-IN",{day:"2-digit",month:"short",year:"numeric"}),text,tag:selectedDiaryTag,ts:Date.now()});
+  document.getElementById("diary-input").value="";
+  document.querySelectorAll("#diary-tag-pills .tag-pill").forEach((b,i)=>b.classList.toggle("sel",i===0));
+  selectedDiaryTag="";renderDiary();scheduleSave();showToast("📓 Entry added");
+}
+function delDiary(i){if(!confirm("Delete entry?"))return;plots[cur].diary.splice(i,1);renderDiary();scheduleSave();}
+
+// ── WEATHER ───────────────────────────────────────────────────────────────────
+const WI={0:"☀️",1:"🌤",2:"⛅",3:"☁️",45:"🌫",51:"🌦",61:"🌧",65:"🌧",80:"🌦",95:"⛈",96:"⛈"};
+const WD={0:"Clear sky",1:"Mainly clear",2:"Partly cloudy",3:"Overcast",45:"Foggy",51:"Light drizzle",61:"Light rain",65:"Heavy rain",80:"Rain showers",95:"Thunderstorm",96:"Thunderstorm+hail"};
+async function loadWeather(force=false){
+  const cache=JSON.parse(localStorage.getItem("khetWeather")||"null");
+  if(!force&&cache&&(Date.now()-cache.ts)<30*60*1000){renderWeather(cache);return;}
+  document.getElementById("weather-content").innerHTML=`<p style="padding:20px;color:var(--muted)">📡 Getting your location…</p>`;
+  if(!navigator.geolocation){document.getElementById("weather-content").innerHTML=`<p style="padding:20px;color:var(--muted)">⚠️ Location not available.</p>`;return;}
+  navigator.geolocation.getCurrentPosition(async pos=>{
+    const{latitude:lat,longitude:lon}=pos.coords;
+    try{
+      const r=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,wind_speed_10m,weathercode,precipitation&daily=precipitation_sum&timezone=auto&forecast_days=1`);
+      const d=await r.json();const c=d.current;
+      const data={ts:Date.now(),lat,lon,temp:c.temperature_2m,humidity:c.relative_humidity_2m,wind:c.wind_speed_10m,wmo:c.weathercode,rain:d.daily?.precipitation_sum?.[0]||0};
+      localStorage.setItem("khetWeather",JSON.stringify(data));renderWeather(data);
+    }catch{document.getElementById("weather-content").innerHTML=`<p style="padding:20px;color:var(--muted)">❌ Weather fetch failed.</p>`;}
+  },()=>{document.getElementById("weather-content").innerHTML=`<p style="padding:20px;color:var(--muted)">⚠️ Location denied. Enable location in browser/app settings.</p>`;});
+}
+function renderWeather(d){
+  const icon=WI[d.wmo]||"🌤";const desc=WD[d.wmo]||"Weather";
+  let advice="🌿 Normal conditions — proceed with planned activities.";
+  if(d.rain>5)advice="🚫 Heavy rain — avoid spraying today.";
+  else if(d.wmo>=95)advice="⛈ Thunderstorm alert — stay indoors, secure equipment.";
+  else if(d.temp>38)advice="🌡 Very hot — irrigate early morning or evening.";
+  else if(d.temp<12)advice="❄️ Cold — check crop for frost damage.";
+  else if(d.wmo<=2&&d.rain===0)advice="✅ Good day for fieldwork, spraying, or harvest.";
+  document.getElementById("weather-content").innerHTML=`
+    <div class="weather-hero">
+      <div style="font-size:48px;line-height:1">${icon}</div>
+      <div class="weather-temp">${Math.round(d.temp)}°C</div>
+      <div class="weather-desc">${desc}</div>
+      <div class="weather-row">
+        <div class="weather-chip">💧 ${d.humidity}%</div>
+        <div class="weather-chip">💨 ${d.wind} km/h</div>
+        <div class="weather-chip">🌧 ${d.rain} mm</div>
+      </div>
+    </div>
+    <div class="advice-card"><div class="sec-head">🌾 Farming advice</div><p>${advice}</p></div>`;
+}
+
+// ── FARM NOTES ────────────────────────────────────────────────────────────────
+let selectedFnTag="";
+document.getElementById("fn-tag-pills").addEventListener("click",e=>{
+  const btn=e.target.closest(".tag-pill");if(!btn)return;
+  document.querySelectorAll("#fn-tag-pills .tag-pill").forEach(b=>b.classList.remove("sel"));
+  btn.classList.add("sel");selectedFnTag=btn.dataset.tag;
 });
-async function installApp(){
-  if(!deferredInstallPrompt){
-    alert("On iPhone/iPad, use Share > Add to Home Screen. On Android, open this page in Chrome and choose Install app or Add to Home screen.");
-    return;
+function getFarmNotes(){try{return JSON.parse(localStorage.getItem(`khetNotes_${currentUser?.uid}`)||"[]");}catch{return[];}}
+function saveFarmNotesLocal(notes){localStorage.setItem(`khetNotes_${currentUser?.uid}`,JSON.stringify(notes));}
+async function syncFarmNotes(){
+  if(!isOnline||!currentUser)return;
+  try{
+    const r=await cloudGetNotes();
+    if(r&&r.value){
+      const remote=JSON.parse(r.value);
+      const remTs=r.updatedAt;
+      const locTs=Number(localStorage.getItem(`khetNotesTs_${currentUser.uid}`)||0);
+      if(remTs>locTs){saveFarmNotesLocal(remote);localStorage.setItem(`khetNotesTs_${currentUser.uid}`,String(remTs));renderFarmNotes();}
+    }
+  }catch{}
+}
+function renderFarmNotes(){
+  const notes=getFarmNotes();
+  const el=document.getElementById("fn-list");
+  if(!notes.length){el.innerHTML=`<p style="color:var(--muted);font-size:14px;padding:8px 0">No notes yet. Write your first one above.</p>`;return;}
+  el.innerHTML=[...notes].reverse().map((n,ri)=>{
+    const i=notes.length-1-ri;
+    return`<div class="fn-card">
+      <div class="fn-card-top"><span style="font-size:12px;color:var(--muted);font-weight:700">${n.date}</span>${n.tag?`<span class="fn-tag-badge">${n.tag}</span>`:""}</div>
+      <div class="fn-text">${esc(n.text)}</div>
+      <button class="act-del" style="margin-top:8px;width:auto;padding:0 10px;font-size:13px" onclick="delFarmNote(${i})">🗑 Delete</button>
+    </div>`;
+  }).join("");
+}
+async function addFarmNote(){
+  const text=document.getElementById("fn-input").value.trim();
+  if(!text){document.getElementById("fn-input").focus();return;}
+  const notes=getFarmNotes();
+  const d=new Date();
+  notes.push({id:uid(),text,tag:selectedFnTag,date:d.toLocaleDateString("en-IN",{day:"2-digit",month:"short",year:"numeric"}),ts:Date.now()});
+  saveFarmNotesLocal(notes);
+  localStorage.setItem(`khetNotesTs_${currentUser?.uid}`,String(Date.now()));
+  document.getElementById("fn-input").value="";
+  document.querySelectorAll("#fn-tag-pills .tag-pill").forEach((b,i)=>b.classList.toggle("sel",i===0));
+  selectedFnTag="";renderFarmNotes();showToast("📝 Note saved");
+  if(isOnline&&currentUser)try{await cloudSetNotes(JSON.stringify(notes));}catch{}
+}
+async function delFarmNote(i){
+  if(!confirm("Delete note?"))return;
+  const notes=getFarmNotes();notes.splice(i,1);
+  saveFarmNotesLocal(notes);localStorage.setItem(`khetNotesTs_${currentUser?.uid}`,String(Date.now()));
+  renderFarmNotes();
+  if(isOnline&&currentUser)try{await cloudSetNotes(JSON.stringify(notes));}catch{}
+}
+
+// ── SETTINGS ──────────────────────────────────────────────────────────────────
+function renderSettings(){
+  if(!currentUser)return;
+  const initials=currentUser.name?currentUser.name.charAt(0).toUpperCase():"F";
+  document.getElementById("prof-avatar").textContent=initials;
+  document.getElementById("prof-name").textContent=currentUser.name||"Farmer";
+  document.getElementById("prof-email").textContent=currentUser.email||"";
+}
+
+// ── BOOT ──────────────────────────────────────────────────────────────────────
+(async()=>{
+  // Check saved session
+  const sess=JSON.parse(localStorage.getItem("khetSession")||"null");
+  if(sess&&sess.uid){
+    currentUser={uid:sess.uid,email:sess.email,name:sess.name,refreshToken:sess.refreshToken,idToken:""};
+    // Refresh token to get valid idToken
+    const ok=await refreshToken();
+    if(ok){await initApp();}
+    else{localStorage.removeItem("khetSession");document.getElementById("loading-screen").classList.add("hide");showScreen("auth");}
+  }else{
+    document.getElementById("loading-screen").classList.add("hide");
+    showScreen("auth");
   }
-  deferredInstallPrompt.prompt();
-  await deferredInstallPrompt.userChoice;
-  deferredInstallPrompt=null;
-  installButton.style.display="none";
-}
-if("serviceWorker" in navigator && (location.protocol==="https:" || location.hostname==="localhost" || location.hostname==="127.0.0.1")){
-  window.addEventListener("load",()=>navigator.serviceWorker.register("service-worker.js").catch(()=>{}));
-}
-load();
+  // Tag pill setup
+  document.addEventListener("keydown",e=>{if(e.key==="Escape"){closeLightbox();}});
+})();
+
+// ── SERVICE WORKER ────────────────────────────────────────────────────────────
+if("serviceWorker" in navigator){window.addEventListener("load",()=>{
+  const sw=`const C="khet-v4";const S=["/","/index.html","/manifest.webmanifest"];
+self.addEventListener("install",e=>{e.waitUntil(caches.open(C).then(c=>c.addAll(S)).then(()=>self.skipWaiting()))});
+self.addEventListener("activate",e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==C).map(k=>caches.delete(k)))).then(()=>self.clients.claim()))});
+self.addEventListener("fetch",e=>{const u=new URL(e.request.url);
+if(u.hostname.includes("googleapis")||u.hostname.includes("open-meteo")||u.hostname.includes("identitytoolkit")||u.hostname.includes("securetoken")){return;}
+e.respondWith(caches.match(e.request).then(c=>{const n=fetch(e.request).then(r=>{if(r&&r.status===200&&e.request.method==="GET"){caches.open(C).then(cc=>cc.put(e.request,r.clone()))}return r}).catch(()=>c);return c||n;}));});`;
+  try{const b=new Blob([sw],{type:"text/javascript"});navigator.serviceWorker.register(URL.createObjectURL(b),{scope:"/"}).catch(()=>navigator.serviceWorker.register("service-worker.js").catch(()=>{}));}
+  catch{navigator.serviceWorker.register("service-worker.js").catch(()=>{});}
+});}
 </script>
 </body>
 </html>
