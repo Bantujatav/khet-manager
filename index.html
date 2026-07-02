@@ -874,22 +874,65 @@ function addAct(){plots[cur].activities.push({label:"",date:"",status:"pending"}
 function delAct(i){if(!confirm("Delete step?"))return;plots[cur].activities.splice(i,1);renderActs();fillDetail();scheduleSave();}
 
 // ── COSTS ─────────────────────────────────────────────────────────────────────
-function renderCosts(){
-  const costs=plots[cur].costs||[];
-  const total=costs.reduce((s,c)=>s+(parseFloat(c.amount)||0),0);
-  document.getElementById("cost-list").innerHTML=costs.length===0
-    ?`<p style="color:var(--muted);font-size:14px;padding:8px 0">No costs yet.</p>`
-    :costs.map((c,i)=>`<div class="cost-item">
-      <input value="${esc(c.cat)}" oninput="plots[cur].costs[${i}].cat=this.value;scheduleSave()" placeholder="e.g. Seed">
-      <input type="number" value="${c.amount||""}" oninput="plots[cur].costs[${i}].amount=this.value;updateTotal();scheduleSave()" placeholder="Rs 0">
-      <button class="act-del" onclick="delCost(${i})">✕</button>
-    </div>`).join("");
-  document.getElementById("total-exp").textContent=money(total);
+function addCost() {
+  plots[cur].costs.push({ cat: "", amount: "" });
+  renderCosts(true);
+  scheduleSave();
 }
-function updateTotal(){const t=plots[cur].costs.reduce((s,c)=>s+(parseFloat(c.amount)||0),0);document.getElementById("total-exp").textContent=money(t);renderProfitCalc();fillDetail();}
-function addCost(){plots[cur].costs.push({cat:"",amount:""});renderCosts();scheduleSave();}
-function delCost(i){if(!confirm("Delete cost?"))return;plots[cur].costs.splice(i,1);renderCosts();fillDetail();scheduleSave();}
 
+function renderCosts(keepFocus = false) {
+  const costs = plots[cur].costs || [];
+  const total = costs.reduce((s, c) => s + (parseFloat(c.amount) || 0), 0);
+
+  const active = keepFocus ? document.activeElement : null;
+  const activeId = active && active.id ? active.id : null;
+  const activeStart = active && typeof active.selectionStart === "number" ? active.selectionStart : null;
+  const activeEnd = active && typeof active.selectionEnd === "number" ? active.selectionEnd : null;
+
+  document.getElementById("cost-list").innerHTML =
+    costs.length === 0
+      ? `<p style="color:var(--muted);font-size:14px;padding:8px 0">No costs yet.</p>`
+      : costs.map((c, i) => `
+        <div class="cost-item">
+          <input id="cost-cat-${i}" value="${esc(c.cat)}"
+            oninput="plots[cur].costs[${i}].cat=this.value;scheduleSave()"
+            placeholder="e.g. Seed">
+
+          <input id="cost-amt-${i}" inputmode="decimal" type="text"
+            value="${c.amount || ''}"
+            oninput="plots[cur].costs[${i}].amount=this.value;updateTotal();scheduleSave()"
+            placeholder="Rs 0">
+
+          <button class="act-del" onclick="delCost(${i})">✕</button>
+        </div>`).join("");
+
+  document.getElementById("total-exp").textContent = money(total);
+
+  if (keepFocus && activeId) {
+    const el = document.getElementById(activeId);
+    if (el) {
+      el.focus({ preventScroll: true });
+      if (activeStart !== null && activeEnd !== null && el.setSelectionRange) {
+        el.setSelectionRange(activeStart, activeEnd);
+      }
+    }
+  }
+}
+
+function updateTotal() {
+  const t = (plots[cur].costs || []).reduce((s, c) => s + (parseFloat(c.amount) || 0), 0);
+  document.getElementById("total-exp").textContent = money(t);
+  renderProfitCalc();
+  fillDetail();
+}
+
+function delCost(i) {
+  if (!confirm("Delete cost?")) return;
+  plots[cur].costs.splice(i, 1);
+  renderCosts(false);
+  fillDetail();
+  scheduleSave();
+}
 // ── HARVEST ───────────────────────────────────────────────────────────────────
 function uh(k,v){plots[cur].harvest[k]=parseFloat(v)||0;renderProfitCalc();fillDetail();scheduleSave();}
 function uh2(k,v){plots[cur].harvest[k]=v;scheduleSave();}
